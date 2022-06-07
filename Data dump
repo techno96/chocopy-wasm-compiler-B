@@ -20,3 +20,24 @@ Script
     Number --> 2
     ,
     Number --> 3
+
+
+
+break = d,e,f = 1,2,3 (unsupported case)
+
+Script
+  BreakStatement
+    break
+  âš 
+  AssignStatement
+    VariableName --> d
+    ,
+    VariableName --> e
+    ,
+    VariableName --> f
+    AssignOp
+    Number --> 1
+    ,
+    Number --> 2
+    ,
+    Number --> 3
