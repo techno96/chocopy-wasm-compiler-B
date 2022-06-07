@@ -544,7 +544,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<SourceLocation> 
       } else {
         var chains = []
         for (var i = 0; i < chainLen; i++) {
-          chains.push(getTargetForAssign(targets[0], location, rhsargs))
+          chains.push(getTargetForAssign(targets[i], location, rhsargs))
         }
         return {a : location, tag : "chain", chains}
       }
