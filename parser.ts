@@ -449,6 +449,70 @@ export function traverseArguments(c : TreeCursor, s : string) : Array<Expr<Sourc
   return args;
 }
 
+function checkChainLength(c : TreeCursor, s : string) : number {
+  var chainLen = 0
+  do {
+    if (c.type.name === "AssignOp") 
+      chainLen = chainLen + 1
+  } while (c.nextSibling())
+  c.parent()
+  c.firstChild()
+  return chainLen
+}
+
+function getTargetForAssign(target : DestructureLHS<SourceLocation>[], location : SourceLocation, rhsargs : Array<Expr<SourceLocation>>) : Stmt<SourceLocation> {
+  //Normal assign statements
+  if(target.length==1) {
+    if (target[0].lhs.tag === "lookup") {
+      return {
+        a: location,
+        tag: "field-assign",
+        obj: target[0].lhs.obj,
+        field: target[0].lhs.field,
+        value: rhsargs[0]
+      }
+    } else if (target[0].lhs.tag === "id") {
+      return {
+        a: location,
+        tag: "assign",
+        name: target[0].lhs.name,
+        value: rhsargs[0]
+      }  
+    } else if (target[0].lhs.tag === "index"){
+      return {
+        a: location,
+        tag: "index-assign",
+        obj: target[0].lhs.obj,
+        index: target[0].lhs.index,
+        value: rhsargs[0]
+      }
+    } else {
+      throw new ParseError("Unknown target while parsing assignment", location);
+    }
+  } 
+  //Destructure return
+  else {
+    if(rhsargs.length==1){
+      return {
+        a : location,
+        tag : "assign-destr", 
+        destr : target, 
+        rhs : rhsargs[0]
+      };
+    }
+    return {
+      a : location,
+      tag : "assign-destr", 
+      destr : target, 
+      rhs : { tag:"non-paren-vals", values:rhsargs }
+    };
+  }
+
+}
+
+
+
+
 export function traverseStmt(c : TreeCursor, s : string) : Stmt<SourceLocation> {
   var location = getSourceLocation(c, s);
   switch(c.node.type.name) {
@@ -464,51 +528,26 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<SourceLocation> 
       return { a: location, tag: "return", value };
     case "AssignStatement":
       c.firstChild(); // go to name
-      // Parse LHS
-      const target = traverseDestructureTargets(c, s);
-      // Parse AssignOp
-      c.nextSibling();
+      var chainLen = checkChainLength(c, s)
+      var targets = []
+      for (var i = 0; i < chainLen; i++) {
+        // Parse LHS
+        targets.push(traverseDestructureTargets(c, s))
+        // Parse AssignOp
+        c.nextSibling();
+      }
       //Parse RHS
       const rhsargs = traverseDestructureValues(c,s);
       c.parent();
-      //Normal assign statements
-      if(target.length==1){
-        if (target[0].lhs.tag === "lookup") {
-          return {
-            a: location,
-            tag: "field-assign",
-            obj: target[0].lhs.obj,
-            field: target[0].lhs.field,
-            value: rhsargs[0]
-          }
-        } else if (target[0].lhs.tag === "id") {
-          return {
-            a: location,
-            tag: "assign",
-            name: target[0].lhs.name,
-            value: rhsargs[0]
-          }  
-        } else if (target[0].lhs.tag === "index"){
-          return {
-            a: location,
-            tag: "index-assign",
-            obj: target[0].lhs.obj,
-            index: target[0].lhs.index,
-            value: rhsargs[0]
-          }
-        } else {
-          throw new ParseError("Unknown target while parsing assignment", location);
+      if (chainLen === 1) {
+        return getTargetForAssign(targets[0], location, rhsargs)
+      } else {
+        var chains = []
+        for (var i = 0; i < chainLen; i++) {
+          chains.push(getTargetForAssign(targets[0], location, rhsargs))
         }
-      } 
-      //Destructure return
-      else {
-        return {
-          a : location,
-          tag : "assign-destr", 
-          destr : target, 
-          rhs : { tag:"non-paren-vals", values:rhsargs }
-        };
-      }  
+        return {a : location, tag : "chain", chains}
+      }
       
     case "ExpressionStatement":
       c.firstChild();
@@ -1013,5 +1052,6 @@ export function traverse(c : TreeCursor, s : string) : Program<SourceLocation> {
 export function parse(source : string) : Program<SourceLocation> {
   const t = parser.parse(source);
   const str = stringifyTree(t.cursor(), source, 0);
+  console.log(str)
   return traverse(t.cursor(), source);
 }

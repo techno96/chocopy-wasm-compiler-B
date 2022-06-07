@@ -95,6 +95,9 @@ function flattenStmts(s : Array<AST.Stmt<[Type, SourceLocation]>>, blocks: Array
 
 function flattenStmt(s : AST.Stmt<[Type, SourceLocation]>, blocks: Array<IR.BasicBlock<[Type, SourceLocation]>>, env : GlobalEnv) : Array<IR.VarInit<[Type, SourceLocation]>> {
   switch(s.tag) {
+    case "chain" :
+      return flattenStmts(s.chains, blocks, env);
+
     case "assign":
       var [valinits, valstmts, vale] = flattenExprToExpr(s.value, blocks, env);
       blocks[blocks.length - 1].stmts.push(...valstmts, { a: s.a, tag: "assign", name: s.name, value: vale});

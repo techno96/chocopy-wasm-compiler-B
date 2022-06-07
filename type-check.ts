@@ -257,6 +257,9 @@ export function tcBlock(env : GlobalTypeEnv, locals : LocalTypeEnv, stmts : Arra
 
 export function tcStmt(env : GlobalTypeEnv, locals : LocalTypeEnv, stmt : Stmt<SourceLocation>) : Stmt<[Type, SourceLocation]> {
   switch(stmt.tag) {
+    case "chain":
+      const chains = tcBlock(env, locals, stmt.chains);
+      return {a: [NONE, stmt.a], tag : "chain", chains}
     case "assign":
       const tValExpr = tcExpr(env, locals, stmt.value);
       var nameTyp;
